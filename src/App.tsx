@@ -6,12 +6,9 @@ import {
   Code2,
   Database,
   FileCode2,
-  GitBranch,
   Layers3,
-  Moon,
   Play,
   RotateCcw,
-  Sun,
   Table2,
   WandSparkles,
 } from "lucide-react";
@@ -88,8 +85,7 @@ function formatInterface(tableName: string, columns: Column[]) {
 
 function App() {
   const [sql, setSql] = useState(sampleSql),
-    [copied, setCopied] = useState(false),
-    [dark, setDark] = useState(false);
+    [copied, setCopied] = useState(false);
   const parsed = parseSql(sql),
     output = formatInterface(parsed.tableName, parsed.columns);
   const copyOutput = async () => {
@@ -98,7 +94,7 @@ function App() {
     window.setTimeout(() => setCopied(false), 1600);
   };
   return (
-    <main className={dark ? "app dark" : "app"}>
+    <main className={"app"}>
       <nav className="topbar">
         <div className="brand">
           <div className="brand-mark">
@@ -110,12 +106,6 @@ function App() {
           <span className="version">v1.0</span>
         </div>
         <div className="nav-actions">
-          <button className="icon-btn" aria-label="Toggle theme" onClick={() => setDark(!dark)}>
-            {dark ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
-          <button className="github-btn">
-            <GitBranch size={16} /> GitHub
-          </button>
           <div className="avatar">DQ</div>
         </div>
       </nav>
