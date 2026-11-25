@@ -46,6 +46,26 @@ function pascalCase(value: string) {
       .join("") || "GeneratedTable"
   );
 }
+function extractCreateTables(sql: string) {
+  const tables: string[] = [];
+  const starts = [...sql.matchAll(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?/gi)].map((match) => match.index ?? 0);
+  starts.forEach((start) => {
+    const open = sql.indexOf("(", start);
+    if (open < 0) return;
+    let depth = 0;
+    let quote = "";
+    for (let index = open; index < sql.length; index += 1) {
+      const char = sql[index];
+      const previous = sql[index - 1];
+      if (quote) { if (char === quote && previous !== "\\") quote = ""; continue; }
+      if (char === "'" || char === '"' || char === "`") { quote = char; continue; }
+      if (char === "(") depth += 1;
+      if (char === ")") depth -= 1;
+      if (depth === 0) { tables.push(sql.slice(start, index + 1)); break; }
+    }
+  });
+  return tables;
+}
 function parseSql(sql: string) {
   const tableName =
     sql.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([\w-]+)[`"]?/i)?.[1] ??
@@ -86,8 +106,9 @@ function formatInterface(tableName: string, columns: Column[]) {
 function App() {
   const [sql, setSql] = useState(sampleSql),
     [copied, setCopied] = useState(false);
-  const parsed = parseSql(sql),
-    output = formatInterface(parsed.tableName, parsed.columns);
+  const tables = extractCreateTables(sql);
+  const parsedTables = tables.map(parseSql);
+  const output = parsedTables.map((table) => formatInterface(table.tableName, table.columns)).join("\n\n");
   const copyOutput = async () => {
     await navigator.clipboard.writeText(output);
     setCopied(true);
@@ -132,7 +153,7 @@ function App() {
               </div>
               <div>
                 <strong>SQL schema</strong>
-                <small>Paste your CREATE TABLE statement</small>
+                <small>Paste one or more CREATE TABLE statements</small>
               </div>
             </div>
             <div className="head-actions">
@@ -153,7 +174,7 @@ function App() {
           <div className="panel-foot">
             <span>{sql.length.toLocaleString()} characters</span>
             <span className="status">
-              <span className="status-dot" /> Auto-detect enabled
+              <span className="status-dot" /> {parsedTables.length} table{parsedTables.length === 1 ? "" : "s"} detected
             </span>
           </div>
         </div>
@@ -171,8 +192,8 @@ function App() {
                 <FileCode2 size={16} />
               </div>
               <div>
-                <strong>TypeScript interface</strong>
-                <small>Generated output</small>
+                <strong>TypeScript interfaces</strong>
+                <small>{parsedTables.length} generated output{parsedTables.length === 1 ? "" : "s"}</small>
               </div>
             </div>
             <button className="copy-btn" onClick={copyOutput}>
@@ -194,7 +215,7 @@ function App() {
           </div>
           <div className="panel-foot">
             <span>
-              TypeScript <span className="dot-separator">•</span> Interface
+              TypeScript <span className="dot-separator">•</span> {parsedTables.length} interface{parsedTables.length === 1 ? "" : "s"}
             </span>
             <span className="valid">
               <Check size={13} /> Valid syntax
@@ -208,14 +229,14 @@ function App() {
             <Table2 size={15} />
           </span>
           <span>
-            <strong>{parsed.tableName}</strong>
-            <small>Detected schema</small>
+            <strong>{parsedTables.length} table{parsedTables.length === 1 ? "" : "s"}</strong>
+            <small>{parsedTables.map((table) => table.tableName).join(" · ") || "No schema detected"}</small>
           </span>
         </div>
         <div className="summary-stat">
           <Layers3 size={16} />
           <span>
-            <strong>{parsed.columns.length}</strong>
+            <strong>{parsedTables.reduce((total, table) => total + table.columns.length, 0)}</strong>
             <small>Fields</small>
           </span>
         </div>
@@ -223,7 +244,7 @@ function App() {
           <ChevronDown size={16} />
           <span>
             <strong>
-              {parsed.columns.filter((c) => c.type.toLowerCase().startsWith("enum")).length}
+              {parsedTables.reduce((total, table) => total + table.columns.filter((c) => c.type.toLowerCase().startsWith("enum")).length, 0)}
             </strong>
             <small>Enums</small>
           </span>
